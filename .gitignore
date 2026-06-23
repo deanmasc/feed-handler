@@ -73,3 +73,6 @@ Testing/
 
 # data
 data/
+
+# vscode
+.vscode/
