@@ -70,3 +70,6 @@ Testing/
 
 # Mac OS stuff
 .DS_Store
+
+# data
+data/
