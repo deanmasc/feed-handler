@@ -3,11 +3,12 @@
 #ifndef FEED_HANDLER_HEADER
 #define FEED_HANDLER_HEADER
 
+using MarketDataPtr = std::shared_ptr<std::array<char, 1024>>;
 constexpr char* MULTICAST_IP_ADDR {"239.0.0.1"};
 constexpr int MULTICAST_PORT {30000};
 
 void setup_socket();
-void recv_market_data(char data[]);
+MarketDataPtr recv_market_data();
 void close_socket();
 
 
