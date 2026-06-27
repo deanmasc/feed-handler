@@ -55,8 +55,22 @@ MarketDataPtr recv_market_data() {
 
     ssize_t bytes = recvfrom(sock_fd, buf->data(), buf->size(), 0, nullptr, nullptr);
 
-    char type = (*buf)[0];
-    std::cout << "Received " << bytes << " bytes"
+    char session[10];
+    memcpy(session, buf->data(), 10);
+
+    uint64_t seq_num;
+    memcpy(&seq_num, buf->data() + 10, 8);
+    seq_num = __builtin_bswap64(seq_num);
+
+    uint16_t message_count;
+    memcpy(&message_count, buf->data() + 18, 2);
+    message_count = ntohs(message_count);
+
+    char type = (*buf)[22];
+    std::cout << "Received " << bytes << " bytes "
+              << "Session: " << std::string(session, 10) << " "
+              << "Sequence Number " << seq_num << " "
+              << "Message_count " << message_count << " "
               << " | type '" << type << "'"
               << " (0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
               << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
