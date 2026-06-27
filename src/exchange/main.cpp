@@ -3,9 +3,11 @@
 #include <thread>
 #include <chrono>
 #include <arpa/inet.h>   // ntohs
+#include <set>
 #include "exchange_network.h"
 
 constexpr const char* ITCH_FILE = "/Users/deanmascitti/Desktop/dean-dev/feed-handler/src/data/07302019.NASDAQ_ITCH50";
+const std::set<char> VALID_TYPES {'A', 'F', 'E', 'C', 'X', 'D', 'U', 'P', 'S'};
 
 int main() {
     std::cout << "Exchange process started" << std::endl;
@@ -36,9 +38,13 @@ int main() {
         if (file.gcount() < msg_len) break;  // truncated tail
 
         // 3) hand the raw message to the sender (no decoding yet)
-        send_market_data(buf, msg_len);
+        // Add checking to ensure we are sending only relevant types
+        char type = buf[0];
+        if (VALID_TYPES.count(type)) {
+            send_market_data(buf, msg_len);
+            std::this_thread::sleep_for(std::chrono::microseconds(100000));
+        }
 
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 
     std::cout << "Reached end of ITCH file" << std::endl;

@@ -77,3 +77,19 @@ data/
 
 # vscode
 .vscode/
+
+# Build artifacts
+*.o
+*.out
+*.a
+*.dylib
+*.so
+
+# CMake build directory
+build/
+cmake-build-debug/
+cmake-build-release/
+
+# Compiled executables (no extension on Mac/Linux)
+src/exchange/exchange
+src/feed_handler/feed
