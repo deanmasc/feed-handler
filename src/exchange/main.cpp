@@ -6,7 +6,7 @@
 #include <set>
 #include "exchange_network.h"
 
-constexpr const char* ITCH_FILE = "/Users/deanmascitti/Desktop/dean-dev/feed-handler/src/data/07302019.NASDAQ_ITCH50";
+constexpr const char* ITCH_FILE = "/Users/deanmascitti/Desktop/dean-dev/feed-handler/src/data/test.NASDAQ_ITCH50";
 const std::set<char> VALID_TYPES {'A', 'F', 'E', 'C', 'X', 'D', 'U', 'P', 'S'};
 
 int main() {
