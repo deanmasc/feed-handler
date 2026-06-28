@@ -7,7 +7,7 @@
 #define htobe64(x) __builtin_bswap64(x)
 
 constexpr const char* ITCH_FILE = "/Users/deanmascitti/Desktop/dean-dev/feed-handler/src/data/test.NASDAQ_ITCH50";
-const std::set<char> VALID_TYPES {'A', 'F', 'E', 'C', 'X', 'D', 'U', 'P', 'S'};
+const std::set<char> VALID_TYPES {'A', 'F', 'E', 'C', 'X', 'D', 'U', 'P', 'S', 'H'};
 
 void wrap_MoldUDP64_header(char* buf, uint64_t seq_num) {
     uint16_t message_count {1};

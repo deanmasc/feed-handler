@@ -7,6 +7,7 @@
 #include <iostream>
 #include <iomanip>
 #include "feed_network.h"
+#include "../parser/parser.h"
 
 int sock_fd;
 int reuse {1};
@@ -49,7 +50,7 @@ static const char* itch_msg_name(char type) {
 }
 
 // recieves market data
-MarketDataPtr recv_market_data() {
+void recv_market_data() {
     // This recieved the raw binary market data from the exchange via multicast UDP
     MarketDataPtr buf = std::make_shared<std::array<char, 1024>>();
 
@@ -76,7 +77,8 @@ MarketDataPtr recv_market_data() {
               << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
               << " -> " << itch_msg_name(type) << "\n";
 
-    return buf;
+    process_message(buf->data() + 22, bytes - 22);
+
 }
 
 void close_socket() {
