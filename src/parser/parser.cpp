@@ -1,9 +1,8 @@
-#include <memory>
 #include <iostream>
 #include <string>
-#include <cstring>      // memcpy
 #include <cstdint>      // uintN_t
-#include <arpa/inet.h>  // ntohs, ntohl
+#include "read_data_types.h"
+#include "../order_book/data_models.h"
 
 void process_add_order(char* msg, uint16_t len) {
     if (len < 36) {
@@ -17,43 +16,18 @@ void process_add_order(char* msg, uint16_t len) {
     uint64_t order_ref;
     char side; // 'B' or 'S'
     uint32_t volume;
-    char symbol[8];
+    std::array<char, 8> symbol;
     uint32_t price;
     int offset {1};
 
     // Assigning all fields
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate); // big to little endian
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num); // big to little endian
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2 , msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&order_ref, msg + offset, 8);
-    order_ref = __builtin_bswap64(order_ref);
-    offset += 8;
-
-    memcpy(&side, msg + offset, 1);
-    ++offset;
-
-    memcpy(&volume, msg + offset, 4);
-    volume = ntohl(volume);
-    offset += 4;
-
-    memcpy(symbol, msg + offset, 8);
-    offset += 8;
-
-    memcpy(&price, msg + offset, 4);
-    price = ntohl(price);
-    offset += 4;
-
-    // Now we create the Add order class or struct
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(order_ref, offset, msg);
+    read_char(side, offset, msg);
+    read_int(volume, offset, msg);
+    read_array(symbol, offset, msg);
+    read_int(price, offset, msg);
 
     std::cout << "\n"
               << "[Add Order]"
@@ -63,10 +37,22 @@ void process_add_order(char* msg, uint16_t len) {
               << " order_ref=" << order_ref
               << " side=" << side
               << " volume=" << volume
-              << " symbol=" << std::string(symbol, 8)
+              << " symbol=" << std::string(symbol.data(), 8)
               << " price=" << price << " (" << price / 10000.0 << ")"
               << "\n"
               << std::endl;
+
+    // Now we create the Add order class or struct
+
+    OrderAdd order {
+                    {stock_locate, tracking_num, timestamp,},
+                    order_ref,
+                    static_cast<Side>(side),
+                    volume,
+                    price,
+                    symbol
+                };
+        
 }
 
 // 'F' - Add Order with MPID Attribution.
@@ -82,43 +68,18 @@ void process_add_order_mpid(char* msg, uint16_t len) {
     uint64_t order_ref;
     char side;
     uint32_t volume;
-    char symbol[8];
+    std::array<char, 8> symbol;
     uint32_t price;
-    char attribution[4]; // MPID
+    std::array<char, 4> attribution;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&order_ref, msg + offset, 8);
-    order_ref = __builtin_bswap64(order_ref);
-    offset += 8;
-
-    memcpy(&side, msg + offset, 1);
-    ++offset;
-
-    memcpy(&volume, msg + offset, 4);
-    volume = ntohl(volume);
-    offset += 4;
-
-    memcpy(symbol, msg + offset, 8);
-    offset += 8;
-
-    memcpy(&price, msg + offset, 4);
-    price = ntohl(price);
-    offset += 4;
-
-    memcpy(attribution, msg + offset, 4);
-    offset += 4;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(order_ref, offset, msg);
+    read_char(side, offset, msg);
+    read_int(volume, offset, msg);
+    read_array(symbol, offset, msg);
+    read_int(price, offset, msg);
+    read_array(attribution, offset, msg);
 
     std::cout << "\n"
               << "[Add Order MPID]"
@@ -128,11 +89,21 @@ void process_add_order_mpid(char* msg, uint16_t len) {
               << " order_ref=" << order_ref
               << " side=" << side
               << " volume=" << volume
-              << " symbol=" << std::string(symbol, 8)
+              << " symbol=" << std::string(symbol.data(), 8)
               << " price=" << price << " (" << price / 10000.0 << ")"
-              << " attribution=" << std::string(attribution, 4)
+              << " attribution=" << std::string(attribution.data(), 4)
               << "\n"
               << std::endl;
+
+    OrderAddMPID order {
+                    {stock_locate, tracking_num, timestamp,},
+                    order_ref,
+                    static_cast<Side>(side),
+                    volume,
+                    price,
+                    symbol,
+                    attribution
+                };
 }
 
 // 'E' - Order Executed.
@@ -150,29 +121,10 @@ void process_executed_order(char* msg, uint16_t len) {
     uint64_t match_number;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&order_ref, msg + offset, 8);
-    order_ref = __builtin_bswap64(order_ref);
-    offset += 8;
-
-    memcpy(&executed_shares, msg + offset, 4);
-    executed_shares = ntohl(executed_shares);
-    offset += 4;
-
-    memcpy(&match_number, msg + offset, 8);
-    match_number = __builtin_bswap64(match_number);
-    offset += 8;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(order_ref, offset, msg);
+    read_int(executed_shares, offset, msg);
+    read_int(match_number, offset, msg);
 
     std::cout << "\n"
               << "[Order Executed]"
@@ -184,6 +136,13 @@ void process_executed_order(char* msg, uint16_t len) {
               << " match_number=" << match_number
               << "\n"
               << std::endl;
+
+    OrderExecuted order {
+                    {stock_locate, tracking_num, timestamp,},
+                    order_ref,
+                    executed_shares,
+                    match_number,
+                };
 }
 
 // 'C' - Order Executed With Price.
@@ -204,36 +163,12 @@ void process_executed_with_price_order(char* msg, uint16_t len) {
     uint32_t execution_price;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&order_ref, msg + offset, 8);
-    order_ref = __builtin_bswap64(order_ref);
-    offset += 8;
-
-    memcpy(&executed_shares, msg + offset, 4);
-    executed_shares = ntohl(executed_shares);
-    offset += 4;
-
-    memcpy(&match_number, msg + offset, 8);
-    match_number = __builtin_bswap64(match_number);
-    offset += 8;
-
-    memcpy(&printable, msg + offset, 1);
-    ++offset;
-
-    memcpy(&execution_price, msg + offset, 4);
-    execution_price = ntohl(execution_price);
-    offset += 4;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(order_ref, offset, msg);
+    read_int(executed_shares, offset, msg);
+    read_int(match_number, offset, msg);
+    read_char(printable, offset, msg);
+    read_int(execution_price, offset, msg);
 
     std::cout << "\n"
               << "[Order Executed With Price]"
@@ -247,6 +182,15 @@ void process_executed_with_price_order(char* msg, uint16_t len) {
               << " execution_price=" << execution_price << " (" << execution_price / 10000.0 << ")"
               << "\n"
               << std::endl;
+
+    OrderExecutedWithPrice order {
+                    {stock_locate, tracking_num, timestamp,},
+                    order_ref,
+                    executed_shares,
+                    match_number,
+                    execution_price,
+                    static_cast<Printable>(printable),
+                };
 }
 
 // 'X' - Order Cancel.
@@ -263,25 +207,9 @@ void process_cancel_order(char* msg, uint16_t len) {
     uint32_t cancelled_shares;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&order_ref, msg + offset, 8);
-    order_ref = __builtin_bswap64(order_ref);
-    offset += 8;
-
-    memcpy(&cancelled_shares, msg + offset, 4);
-    cancelled_shares = ntohl(cancelled_shares);
-    offset += 4;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(order_ref, offset, msg);
+    read_int(cancelled_shares, offset, msg);
 
     std::cout << "\n"
               << "[Order Cancel]"
@@ -292,6 +220,12 @@ void process_cancel_order(char* msg, uint16_t len) {
               << " cancelled_shares=" << cancelled_shares
               << "\n"
               << std::endl;
+
+    OrderCancel order {
+                    {stock_locate, tracking_num, timestamp,},
+                    order_ref,
+                    cancelled_shares,
+                };
 }
 
 // 'D' - Order Delete.
@@ -307,21 +241,8 @@ void process_delete_order(char* msg, uint16_t len) {
     uint64_t order_ref;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&order_ref, msg + offset, 8);
-    order_ref = __builtin_bswap64(order_ref);
-    offset += 8;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(order_ref, offset, msg);
 
     std::cout << "\n"
               << "[Order Delete]"
@@ -331,6 +252,11 @@ void process_delete_order(char* msg, uint16_t len) {
               << " order_ref=" << order_ref
               << "\n"
               << std::endl;
+
+    OrderDelete order {
+                    {stock_locate, tracking_num, timestamp,},
+                    order_ref,
+                };
 }
 
 // 'U' - Order Replace.
@@ -351,33 +277,11 @@ void process_replace_order(char* msg, uint16_t len) {
     uint32_t price;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&original_order_ref, msg + offset, 8);
-    original_order_ref = __builtin_bswap64(original_order_ref);
-    offset += 8;
-
-    memcpy(&new_order_ref, msg + offset, 8);
-    new_order_ref = __builtin_bswap64(new_order_ref);
-    offset += 8;
-
-    memcpy(&shares, msg + offset, 4);
-    shares = ntohl(shares);
-    offset += 4;
-
-    memcpy(&price, msg + offset, 4);
-    price = ntohl(price);
-    offset += 4;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(original_order_ref, offset, msg);
+    read_int(new_order_ref, offset, msg);
+    read_int(shares, offset, msg);
+    read_int(price, offset, msg);
 
     std::cout << "\n"
               << "[Order Replace]"
@@ -390,6 +294,14 @@ void process_replace_order(char* msg, uint16_t len) {
               << " price=" << price << " (" << price / 10000.0 << ")"
               << "\n"
               << std::endl;
+
+    OrderReplace order {
+                    {stock_locate, tracking_num, timestamp,},
+                    original_order_ref,
+                    new_order_ref,
+                    shares,
+                    price,
+                };
 }
 
 // 'P' - Trade Message (non-cross).
@@ -407,44 +319,18 @@ void process_trade(char* msg, uint16_t len) {
     uint64_t order_ref;
     char side;
     uint32_t volume;
-    char symbol[8];
+    std::array<char, 8> symbol;
     uint32_t price;
     uint64_t match_number;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&order_ref, msg + offset, 8);
-    order_ref = __builtin_bswap64(order_ref);
-    offset += 8;
-
-    memcpy(&side, msg + offset, 1);
-    ++offset;
-
-    memcpy(&volume, msg + offset, 4);
-    volume = ntohl(volume);
-    offset += 4;
-
-    memcpy(symbol, msg + offset, 8);
-    offset += 8;
-
-    memcpy(&price, msg + offset, 4);
-    price = ntohl(price);
-    offset += 4;
-
-    memcpy(&match_number, msg + offset, 8);
-    match_number = __builtin_bswap64(match_number);
-    offset += 8;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_int(order_ref, offset, msg);
+    read_char(side, offset, msg);
+    read_int(volume, offset, msg);
+    read_array(symbol, offset, msg);
+    read_int(price, offset, msg);
+    read_int(match_number, offset, msg);
 
     std::cout << "\n"
               << "[Trade]"
@@ -454,11 +340,21 @@ void process_trade(char* msg, uint16_t len) {
               << " order_ref=" << order_ref
               << " side=" << side
               << " volume=" << volume
-              << " symbol=" << std::string(symbol, 8)
+              << " symbol=" << std::string(symbol.data(), 8)
               << " price=" << price << " (" << price / 10000.0 << ")"
               << " match_number=" << match_number
               << "\n"
               << std::endl;
+
+    Trade message {
+                    {stock_locate, tracking_num, timestamp,},
+                    order_ref,
+                    static_cast<Side>(side),
+                    volume,
+                    price,
+                    match_number,
+                    symbol
+                };
 }
 
 // 'S' - System Event.
@@ -475,20 +371,8 @@ void process_system_event(char* msg, uint16_t len) {
     char event_code;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(&event_code, msg + offset, 1);
-    ++offset;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_char(event_code, offset, msg);
 
     std::cout << "\n"
               << "[System Event]"
@@ -498,6 +382,11 @@ void process_system_event(char* msg, uint16_t len) {
               << " event_code=" << event_code
               << "\n"
               << std::endl;
+
+    SystemEvent message {
+                    {stock_locate, tracking_num, timestamp,},
+                    static_cast<EventCode>(event_code),
+                };
 }
 
 // 'H' - Stock Trading Action.
@@ -511,46 +400,35 @@ void process_stock_trading_action(char* msg, uint16_t len) {
     uint16_t stock_locate;
     uint16_t tracking_num;
     uint64_t timestamp {0};
-    char symbol[8];
+    std::array<char, 8> symbol;
     char trading_state;
     char reserved;
-    char reason[4];
+    std::array<char, 4> reason;
     int offset {1};
 
-    memcpy(&stock_locate, msg + offset, 2);
-    stock_locate = ntohs(stock_locate);
-    offset += 2;
-
-    memcpy(&tracking_num, msg + offset, 2);
-    tracking_num = ntohs(tracking_num);
-    offset += 2;
-
-    memcpy(reinterpret_cast<char*>(&timestamp) + 2, msg + offset, 6);
-    timestamp = __builtin_bswap64(timestamp);
-    offset += 6;
-
-    memcpy(symbol, msg + offset, 8);
-    offset += 8;
-
-    memcpy(&trading_state, msg + offset, 1);
-    ++offset;
-
-    memcpy(&reserved, msg + offset, 1);
-    ++offset;
-
-    memcpy(reason, msg + offset, 4);
-    offset += 4;
+    read_header(stock_locate, tracking_num, timestamp, offset, msg);
+    read_array(symbol, offset, msg);
+    read_char(trading_state, offset, msg);
+    read_char(reserved, offset, msg);
+    read_array(reason, offset, msg);
 
     std::cout << "\n"
               << "[Stock Trading Action]"
               << " stock_locate=" << stock_locate
               << " tracking_num=" << tracking_num
               << " timestamp=" << timestamp
-              << " symbol=" << std::string(symbol, 8)
+              << " symbol=" << std::string(symbol.data(), 8)
               << " trading_state=" << trading_state
-              << " reason=" << std::string(reason, 4)
+              << " reason=" << std::string(reason.data(), 4)
               << "\n"
               << std::endl;
+
+    StockTradingAction message {
+                    {stock_locate, tracking_num, timestamp,},
+                    static_cast<TradingState>(trading_state),
+                    symbol,
+                    reason,
+                };
 }
 
 void process_message(char* msg, uint16_t len) {
