@@ -57,6 +57,8 @@ void process_add_order(char* msg, uint16_t len) {
 
 // 'F' - Add Order with MPID Attribution.
 // Identical layout to 'A' plus a trailing 4-byte Attribution (MPID) alpha field.
+// The reason this isn't just calling process_add_order is that there may be future extensions where
+// MPID(attribution) is needed, so keeping for now
 void process_add_order_mpid(char* msg, uint16_t len) {
     if (len < 40) {
         std::cout << "Add Order (MPID) has incomplete data " << len << "/40 bytes" << std::endl;
@@ -102,7 +104,7 @@ void process_add_order_mpid(char* msg, uint16_t len) {
                     volume,
                     price,
                     symbol,
-                    attribution
+                    attribution,
                 };
 }
 
