@@ -100,6 +100,46 @@ void write_add_order(std::ofstream& file,
 }
 
 // ---------------------------------------------------------------------------
+// 1.3.2  Add Order with MPID Attribution  (40 bytes)
+// ---------------------------------------------------------------------------
+// Offset  Len  Field
+//   0      1   Message Type  'F'
+//   1      2   Stock Locate
+//   3      2   Tracking Number
+//   5      6   Timestamp
+//  11      8   Order Reference Number
+//  19      1   Buy/Sell Indicator  'B' or 'S'
+//  20      4   Shares
+//  24      8   Stock
+//  32      4   Price
+//  36      4   Attribution (MPID, 4 alpha)
+void write_add_order_mpid(std::ofstream& file,
+                          uint64_t ts_ns,
+                          uint16_t stock_locate,
+                          uint64_t order_ref,
+                          char     side,
+                          uint32_t shares,
+                          const char* stock,
+                          uint32_t price,
+                          const char* mpid)     // 4-char market participant id
+{
+    char msg[40] = {};
+    msg[0] = 'F';
+    put_u16(msg,  1, stock_locate);
+    put_u16(msg,  3, 0);
+    put_ts (msg,  5, ts_ns);
+    put_u64(msg, 11, order_ref);
+    msg[19] = side;
+    put_u32(msg, 20, shares);
+    put_stock(msg, 24, stock);
+    put_u32(msg, 32, price);
+    char tmp[4] = {' ',' ',' ',' '};
+    for (int i = 0; i < 4 && mpid[i] != '\0'; ++i) tmp[i] = mpid[i];
+    memcpy(msg + 36, tmp, 4);
+    write_message(file, msg, 40);
+}
+
+// ---------------------------------------------------------------------------
 // 1.4.1  Order Executed Message  (31 bytes)
 // ---------------------------------------------------------------------------
 // Offset  Len  Field
@@ -393,6 +433,9 @@ int main() {
 
     // Replace ref=3 (ask 150@150.50) -> new ref=5, 100 shares @ 150.75
     write_order_replace(file, tick(), 1, 3, 5, 100, 1507500);
+
+    // Attributed add (MPID) in AAPL: bid 120@149.75, ref=6, MPID "NSDQ"
+    write_add_order_mpid(file, tick(), 1, 6, 'B', 120, "AAPL", 1497500, "NSDQ");
 
     // Non-display trade in AAPL
     write_trade(file, tick(), 1, 75, "AAPL", 1500000, 1002);
