@@ -77,7 +77,7 @@ void recv_market_data(BookManager& book_manager) {
               << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
               << " -> " << itch_msg_name(type) << "\n";
 
-    process_message(buf->data() + 22, bytes - 22);
+    process_message(buf->data() + 22, bytes - 22, book_manager);
 
 }
 

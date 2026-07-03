@@ -1,5 +1,5 @@
-#ifndef FEED_HANDLER_HEADER
-#define FEED_HANDLER_HEADER
+#ifndef BOOK_HANDLER_H
+#define BOOK_HANDLER_H
 
 #include <unordered_map>
 #include <cstdint>
@@ -12,8 +12,8 @@ private:
 public:
     BookManager() {};
 
-    template<typename Order>
-    bool apply(Order& order) {
+    template<typename T>
+    bool apply(T& order) {
         return order_books[order.msg_header.stock_locate].apply(order);
     }
 };

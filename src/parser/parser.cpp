@@ -1,10 +1,11 @@
 #include <iostream>
 #include <string>
 #include <cstdint>      // uintN_t
+#include "parser.h"
 #include "read_data_types.h"
 #include "../order_book/data_models.h"
 
-void process_add_order(char* msg, uint16_t len) {
+OrderAdd process_add_order(char* msg, uint16_t len) {
     if (len < 36) {
         std::cout << "Add Order has incomplete data " << len << "/36 bytes" << std::endl;
         return;
@@ -52,6 +53,8 @@ void process_add_order(char* msg, uint16_t len) {
                     price,
                     symbol
                 };
+
+    return order;
         
 }
 
@@ -59,7 +62,7 @@ void process_add_order(char* msg, uint16_t len) {
 // Identical layout to 'A' plus a trailing 4-byte Attribution (MPID) alpha field.
 // The reason this isn't just calling process_add_order is that there may be future extensions where
 // MPID(attribution) is needed, so keeping for now
-void process_add_order_mpid(char* msg, uint16_t len) {
+OrderAddMPID process_add_order_mpid(char* msg, uint16_t len) {
     if (len < 40) {
         std::cout << "Add Order (MPID) has incomplete data " << len << "/40 bytes" << std::endl;
         return;
@@ -106,11 +109,13 @@ void process_add_order_mpid(char* msg, uint16_t len) {
                     symbol,
                     attribution,
                 };
+
+    return order;
 }
 
 // 'E' - Order Executed.
 // Refers to an existing order by order_ref; reduces its displayed shares by executed_shares.
-void process_executed_order(char* msg, uint16_t len) {
+OrderExecuted process_executed_order(char* msg, uint16_t len) {
     if (len < 31) {
         std::cout << "Order Executed has incomplete data " << len << "/31 bytes" << std::endl;
         return;
@@ -145,12 +150,14 @@ void process_executed_order(char* msg, uint16_t len) {
                     executed_shares,
                     match_number,
                 };
+
+    return order;
 }
 
 // 'C' - Order Executed With Price.
 // Like 'E' but adds a Printable flag and an execution price that may differ from the
 // order's display price. Non-printable executions ("N") should be ignored for time-and-sales.
-void process_executed_with_price_order(char* msg, uint16_t len) {
+OrderExecutedWithPrice process_executed_with_price_order(char* msg, uint16_t len) {
     if (len < 36) {
         std::cout << "Order Executed With Price has incomplete data " << len << "/36 bytes" << std::endl;
         return;
@@ -193,11 +200,13 @@ void process_executed_with_price_order(char* msg, uint16_t len) {
                     execution_price,
                     static_cast<Printable>(printable),
                 };
+
+    return order;
 }
 
 // 'X' - Order Cancel.
 // Partial cancel: removes cancelled_shares from the displayed size of an existing order.
-void process_cancel_order(char* msg, uint16_t len) {
+OrderCancel process_cancel_order(char* msg, uint16_t len) {
     if (len < 23) {
         std::cout << "Order Cancel has incomplete data " << len << "/23 bytes" << std::endl;
         return;
@@ -228,11 +237,13 @@ void process_cancel_order(char* msg, uint16_t len) {
                     order_ref,
                     cancelled_shares,
                 };
+
+    return order;
 }
 
 // 'D' - Order Delete.
 // Full cancel: the order is removed from the book entirely. Smallest of the order messages.
-void process_delete_order(char* msg, uint16_t len) {
+OrderDelete process_delete_order(char* msg, uint16_t len) {
     if (len < 19) {
         std::cout << "Order Delete has incomplete data " << len << "/19 bytes" << std::endl;
         return;
@@ -259,13 +270,15 @@ void process_delete_order(char* msg, uint16_t len) {
                     {stock_locate, tracking_num, timestamp,},
                     order_ref,
                 };
+
+    return order;
 }
 
 // 'U' - Order Replace.
 // NOTE: carries TWO order-ref numbers. The original order is deleted and a new order is
 // created at new_order_ref with new shares/price (loses queue priority). Side, symbol and
 // MPID are NOT in this message - they must be carried over from the original order.
-void process_replace_order(char* msg, uint16_t len) {
+OrderReplace process_replace_order(char* msg, uint16_t len) {
     if (len < 35) {
         std::cout << "Order Replace has incomplete data " << len << "/35 bytes" << std::endl;
         return;
@@ -304,6 +317,8 @@ void process_replace_order(char* msg, uint16_t len) {
                     shares,
                     price,
                 };
+
+    return order;
 }
 
 // 'P' - Trade Message (non-cross).
@@ -433,31 +448,38 @@ void process_stock_trading_action(char* msg, uint16_t len) {
                 };
 }
 
-void process_message(char* msg, uint16_t len) {
+void process_message(char* msg, uint16_t len, BookManager& book_manager) {
     // first char is the type
     char type {*msg};
 
     switch (type) {
         case 'A':
-            process_add_order(msg, len);
+            OrderAdd order {process_add_order(msg, len)};
+            book_manager.apply(order);
             break;
         case 'F':
-            process_add_order_mpid(msg, len);
+            OrderAddMPID order {process_add_order_mpid(msg, len)};
+            book_manager.apply(order);
             break;
         case 'E':
-            process_executed_order(msg, len);
+            OrderExecuted order {process_executed_order(msg, len)};
+            book_manager.apply(order);
             break;
         case 'C':
-            process_executed_with_price_order(msg, len);
+            OrderExecutedWithPrice order {process_executed_with_price_order(msg, len)};
+            book_manager.apply(order);
             break;
         case 'X':
-            process_cancel_order(msg, len);
+            OrderCancel order {process_cancel_order(msg, len)};
+            book_manager.apply(order);
             break;
         case 'D':
-            process_delete_order(msg, len);
+            OrderDelete order {process_delete_order(msg, len)};
+            book_manager.apply(order);
             break;
         case 'U':
-            process_replace_order(msg, len);
+            OrderReplace order {process_replace_order(msg, len)};
+            book_manager.apply(order);
             break;
         case 'P':
             process_trade(msg, len);

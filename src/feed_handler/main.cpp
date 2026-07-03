@@ -1,7 +1,5 @@
 #include <iostream>
 #include "feed_network.h"
-#include "../order_book/book_manager.h"
-
 
 int main() {
     std::cout << "Feed Handler process started" << std::endl;
