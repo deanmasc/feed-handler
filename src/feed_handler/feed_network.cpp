@@ -50,7 +50,7 @@ static const char* itch_msg_name(char type) {
 }
 
 // recieves market data
-void recv_market_data() {
+void recv_market_data(BookManager& book_manager) {
     // This recieved the raw binary market data from the exchange via multicast UDP
     MarketDataPtr buf = std::make_shared<std::array<char, 1024>>();
 

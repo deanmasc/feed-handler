@@ -1,5 +1,6 @@
 #include <iostream>
 #include "feed_network.h"
+#include "../order_book/book_manager.h"
 
 
 int main() {
@@ -8,9 +9,12 @@ int main() {
     // First thing we want to do is create the multicast UDP socket
     setup_socket();
 
+    // Manages order books for each locate
+    BookManager book_manager;
+
     // Then we want to call the recv function on some sort of loop
     while (true) {
-        recv_market_data();
+        recv_market_data(book_manager);
     }
 
 

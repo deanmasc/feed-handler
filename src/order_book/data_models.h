@@ -90,7 +90,7 @@ struct OrderReplace {
     MessageHeader msg_header;
     uint64_t original_order_ref;
     uint64_t new_order_ref;
-    uint32_t shares;
+    uint32_t volume;
     uint32_t price;
 };
 
