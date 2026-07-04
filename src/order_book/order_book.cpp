@@ -42,6 +42,36 @@ std::optional<Side> OrderBook::get_order_side(uint64_t order_ref) const {
     return orders.at(order_ref).side;
 }
 
+std::optional<uint32_t> OrderBook::get_price_level_volume(uint32_t price, Side side) const {
+    if (!price_levels.count(price) || !price_levels.at(price).count(side)) {
+        return std::nullopt;
+    }
+
+    return price_levels.at(price).at(side)[VOLUME_IDX];
+}
+
+std::optional<uint32_t> OrderBook::get_price_level_msg_count(uint32_t price, Side side) const {
+    if (!price_levels.count(price) || !price_levels.at(price).count(side)) {
+        return std::nullopt;
+    }
+
+    return price_levels.at(price).at(side)[MSG_COUNT_IDX];
+}
+
+std::vector<uint32_t> OrderBook::get_all_bids() const {
+    Side side {Side::BUY};
+    std::vector<uint32_t> bids;
+
+    return bids;
+}
+
+std::vector<uint32_t> OrderBook::get_all_asks() const {
+    Side side {Side::BUY};
+    std::vector<uint32_t> bids;
+
+    return bids;
+}
+
 bool OrderBook::adjust_price_level_volume(uint64_t order_ref, int64_t volume_delta) {
     if (!orders.count(order_ref)) {
         return false;

@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <array>
 #include <optional>
+#include <vector>
 #include "data_models.h"
 
 struct OrderEntry {
@@ -33,6 +34,10 @@ public:
     std::optional<uint32_t> get_order_volume(uint64_t order_ref) const;
     std::optional<uint32_t> get_order_price(uint64_t order_ref) const;
     std::optional<Side> get_order_side(uint64_t order_ref) const;
+    std::optional<uint32_t> get_price_level_volume(uint32_t price, Side side) const;
+    std::optional<uint32_t> get_price_level_msg_count(uint32_t price, Side side) const;
+    std::vector<uint32_t> get_all_bids() const;
+    std::vector<uint32_t> get_all_asks() const;
 
     bool adjust_price_level_volume(uint64_t order_ref, int64_t volume_delta);
     bool adjust_price_level_msg_count(uint64_t order_ref, int increment);
