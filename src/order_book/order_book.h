@@ -24,6 +24,15 @@ private:
     static constexpr size_t VOLUME_IDX {0};
     static constexpr size_t MSG_COUNT_IDX {1};
 
+    std::vector<uint32_t> get_all_prices(Side side) const;
+
+    bool adjust_price_level_volume(uint64_t order_ref, int64_t volume_delta);
+    bool adjust_price_level_msg_count(uint64_t order_ref, int increment);
+
+    bool add_order(uint64_t order_ref, Side side, uint32_t price, uint32_t volume);
+    bool delete_order(uint64_t order_ref);
+    bool adjust_order(uint64_t order_ref, int64_t volume_delta);
+
 public:
     OrderBook();
 
@@ -38,13 +47,6 @@ public:
     std::optional<uint32_t> get_price_level_msg_count(uint32_t price, Side side) const;
     std::vector<uint32_t> get_all_bids() const;
     std::vector<uint32_t> get_all_asks() const;
-
-    bool adjust_price_level_volume(uint64_t order_ref, int64_t volume_delta);
-    bool adjust_price_level_msg_count(uint64_t order_ref, int increment);
-
-    bool add_order(uint64_t order_ref, Side side, uint32_t price, uint32_t volume);
-    bool delete_order(uint64_t order_ref);
-    bool adjust_order(uint64_t order_ref, int64_t volume_delta);
 
     bool apply(const OrderAdd& order);
     bool apply(const OrderAddMPID& order);

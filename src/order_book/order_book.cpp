@@ -58,18 +58,25 @@ std::optional<uint32_t> OrderBook::get_price_level_msg_count(uint32_t price, Sid
     return price_levels.at(price).at(side)[MSG_COUNT_IDX];
 }
 
-std::vector<uint32_t> OrderBook::get_all_bids() const {
-    Side side {Side::BUY};
-    std::vector<uint32_t> bids;
+std::vector<uint32_t> OrderBook::get_all_prices(Side side) const {
+    std::vector<uint32_t> prices;
 
-    return bids;
+    for (const auto& [price, inner_map] : price_levels) {
+        // Check if for this price there is a bid
+        if (inner_map.count(side)) {
+            prices.push_back(price);
+        }
+    }
+
+    return prices;
+}
+
+std::vector<uint32_t> OrderBook::get_all_bids() const {
+    return get_all_prices(Side::BUY);
 }
 
 std::vector<uint32_t> OrderBook::get_all_asks() const {
-    Side side {Side::BUY};
-    std::vector<uint32_t> bids;
-
-    return bids;
+    return get_all_prices(Side::SELL);
 }
 
 bool OrderBook::adjust_price_level_volume(uint64_t order_ref, int64_t volume_delta) {
