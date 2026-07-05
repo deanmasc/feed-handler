@@ -93,3 +93,4 @@ cmake-build-release/
 # Compiled executables (no extension on Mac/Linux)
 src/exchange/exchange
 src/feed_handler/feed
+tests/ob-test
