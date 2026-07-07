@@ -5,7 +5,6 @@
 
 #include "../order_book/book_manager.h"
 
-using MarketDataPtr = std::shared_ptr<std::array<char, 1024>>;
 constexpr const char* MULTICAST_IP_ADDR {"239.0.0.1"};
 constexpr const int MULTICAST_PORT {30000};
 

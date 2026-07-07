@@ -3,7 +3,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <array>
-#include <memory>
 #include <iostream>
 #include <iomanip>
 #include "feed_network.h"
@@ -52,22 +51,22 @@ static const char* itch_msg_name(char type) {
 // recieves market data
 void recv_market_data(BookManager& book_manager) {
     // This recieved the raw binary market data from the exchange via multicast UDP
-    MarketDataPtr buf = std::make_shared<std::array<char, 1024>>();
+    std::array<char, 1024> buf;
 
-    ssize_t bytes = recvfrom(sock_fd, buf->data(), buf->size(), 0, nullptr, nullptr);
+    ssize_t bytes = recvfrom(sock_fd, buf.data(), buf.size(), 0, nullptr, nullptr);
 
     char session[10];
-    memcpy(session, buf->data(), 10);
+    memcpy(session, buf.data(), 10);
 
     uint64_t seq_num;
-    memcpy(&seq_num, buf->data() + 10, 8);
+    memcpy(&seq_num, buf.data() + 10, 8);
     seq_num = __builtin_bswap64(seq_num);
 
     uint16_t message_count;
-    memcpy(&message_count, buf->data() + 18, 2);
+    memcpy(&message_count, buf.data() + 18, 2);
     message_count = ntohs(message_count);
 
-    char type = (*buf)[22];
+    char type = buf[22];
     std::cout << "Received " << bytes << " bytes "
               << "Session: " << std::string(session, 10) << " "
               << "Sequence Number " << seq_num << " "
@@ -77,7 +76,7 @@ void recv_market_data(BookManager& book_manager) {
               << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
               << " -> " << itch_msg_name(type) << "\n";
 
-    process_message(buf->data() + 22, bytes - 22, book_manager);
+    process_message(buf.data() + 22, bytes - 22, book_manager);
 
 }
 
