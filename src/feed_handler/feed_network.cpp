@@ -30,8 +30,14 @@ void setup_socket() {
     setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &group, sizeof(group));
 }
 
+void request_retransmission(uint64_t first_seq_num, uint16_t messages_lost) {
+    std::cout << "Retransmission request for " << messages_lost 
+              << " messages lost, starting from sequence number " << first_seq_num
+              << std::endl;
 
-// maps an ITCH 5.0 message type byte to a human-readable name (milestone 1 visibility only)
+    return;
+}
+
 static const char* itch_msg_name(char type) {
     switch (type) {
         case 'A': return "Add Order";
@@ -49,7 +55,10 @@ static const char* itch_msg_name(char type) {
 }
 
 // recieves market data
-void recv_market_data(BookManager& book_manager) {
+void recv_market_data(BookManager& book_manager, 
+                      uint64_t& expected_seq_num, 
+                      std::set<uint64_t>& packets_lost, 
+                      std::map<uint64_t, PacketData>& packet_buffer) {
     // This recieved the raw binary market data from the exchange via multicast UDP
     std::array<char, 1024> buf;
 
@@ -58,26 +67,76 @@ void recv_market_data(BookManager& book_manager) {
     char session[10];
     memcpy(session, buf.data(), 10);
 
-    uint64_t seq_num;
-    memcpy(&seq_num, buf.data() + 10, 8);
-    seq_num = __builtin_bswap64(seq_num);
+    uint64_t packet_seq_num;
+    memcpy(&packet_seq_num, buf.data() + 10, 8);
+    packet_seq_num = __builtin_bswap64(packet_seq_num);
 
     uint16_t message_count;
     memcpy(&message_count, buf.data() + 18, 2);
     message_count = ntohs(message_count);
 
-    char type = buf[22];
-    std::cout << "Received " << bytes << " bytes "
-              << "Session: " << std::string(session, 10) << " "
-              << "Sequence Number " << seq_num << " "
-              << "Message_count " << message_count << " "
-              << " | type '" << type << "'"
-              << " (0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-              << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
-              << " -> " << itch_msg_name(type) << "\n";
+    if (packet_seq_num == expected_seq_num) { // Expected seq_num (can be buffered or sent)
+        if (!packets_lost.empty()) {
+            packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, buf};
+        } else {
+            expected_seq_num += message_count;
+            char type = buf[22];
+            std::cout << "Received " << bytes << " bytes "
+                    << "Session: " << std::string(session, 10) << " "
+                    << "Sequence Number " << packet_seq_num << " "
+                    << "Message_count " << message_count << " "
+                    << " | type '" << type << "'"
+                    << " (0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+                    << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
+                    << " -> " << itch_msg_name(type) << "\n";
 
-    process_message(buf.data() + 22, bytes - 22, book_manager);
+            process_message(buf.data() + 22, bytes - 22, book_manager);
+        }
 
+    } else if (packets_lost.contains(packet_seq_num)) { // Recieved lost packet (can be buffered or sent)
+        std::cout << "RECIEVED LOST PACKET! Starting Seq num: " << packet_seq_num 
+                  << ", message count: " << message_count << "."
+                  << std::endl;
+        
+        for (size_t i{packet_seq_num}; i < packet_seq_num + message_count; i++) {
+            packets_lost.erase(i);
+        }
+
+        if (*packets_lost.begin() == packet_seq_num) {
+            process_message(buf.data() + 22, bytes - 22, book_manager);
+        } else {
+            packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, buf};
+        }
+
+    } else { // Identified lost packet (incoming packet will be buffered)
+        std::cout << "PACKET LOST! Expected Seq num " << expected_seq_num 
+                  << ", recieved seq num " << packet_seq_num << ". "
+                  << "Sending retransmission request to exchange."
+                  << std::endl;
+
+        // Insert all lost seq_nums
+        for (size_t i {expected_seq_num}; i < packet_seq_num; i++) {
+            packets_lost.insert(i);
+        }
+        request_retransmission(expected_seq_num, packet_seq_num - expected_seq_num); // Second argument is the amount of messages lost
+
+        // Now we buffer/store the packet we did recieve
+        packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, buf};
+    }
+
+}
+
+void handle_recv_market_data(BookManager& book_manager) {
+    uint64_t expected_seq_num {1};
+    std::set<uint64_t> packets_lost;
+    std::map<uint64_t, PacketData> packet_buffer;
+
+    while (true) {
+        recv_market_data(book_manager, expected_seq_num, packets_lost, packet_buffer);
+        if (packets_lost.empty()) {
+            // Call some function to unload packet_buffer
+        }
+    }
 }
 
 void close_socket() {

@@ -3,13 +3,25 @@
 #ifndef FEED_HANDLER_HEADER
 #define FEED_HANDLER_HEADER
 
+#include <set>
+#include <map>
 #include "../order_book/book_manager.h"
 
 constexpr const char* MULTICAST_IP_ADDR {"239.0.0.1"};
 constexpr const int MULTICAST_PORT {30000};
 
+struct PacketData {
+    uint64_t start_seq_num;
+    uint16_t message_count;
+    std::array<char, 1024> data;
+};
+
 void setup_socket();
-void recv_market_data(BookManager& book_manager);
+void handle_recv_market_data(BookManager& book_manager);
+void recv_market_data(BookManager& book_manager, 
+                      uint64_t& expected_seq_num, 
+                      std::set<uint64_t>& packets_lost, 
+                      std::map<uint64_t, PacketData>& packet_buffer);
 void close_socket();
 
 

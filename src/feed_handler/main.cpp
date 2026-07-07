@@ -11,9 +11,7 @@ int main() {
     BookManager book_manager;
 
     // Then we want to call the recv function on some sort of loop
-    while (true) {
-        recv_market_data(book_manager);
-    }
+    handle_recv_market_data(book_manager);
 
 
     return 0;
