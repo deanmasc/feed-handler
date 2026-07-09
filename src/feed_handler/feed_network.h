@@ -13,6 +13,7 @@ constexpr const int MULTICAST_PORT {30000};
 struct PacketData {
     uint64_t start_seq_num;
     uint16_t message_count;
+    uint16_t bytes;
     std::array<char, 1024> data;
 };
 

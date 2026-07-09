@@ -64,6 +64,13 @@ void recv_market_data(BookManager& book_manager,
 
     ssize_t bytes = recvfrom(sock_fd, buf.data(), buf.size(), 0, nullptr, nullptr);
 
+    if (bytes < 0) {
+        // Some error recieving
+        return;
+    }
+
+    uint16_t u_bytes = static_cast<uint16_t>(bytes);
+
     char session[10];
     memcpy(session, buf.data(), 10);
 
@@ -76,12 +83,12 @@ void recv_market_data(BookManager& book_manager,
     message_count = ntohs(message_count);
 
     if (packet_seq_num == expected_seq_num) { // Expected seq_num (can be buffered or sent)
+        expected_seq_num += message_count;
         if (!packets_lost.empty()) {
-            packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, buf};
+            packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, u_bytes, buf};
         } else {
-            expected_seq_num += message_count;
             char type = buf[22];
-            std::cout << "Received " << bytes << " bytes "
+            std::cout << "Received " << u_bytes << " bytes "
                     << "Session: " << std::string(session, 10) << " "
                     << "Sequence Number " << packet_seq_num << " "
                     << "Message_count " << message_count << " "
@@ -90,22 +97,24 @@ void recv_market_data(BookManager& book_manager,
                     << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
                     << " -> " << itch_msg_name(type) << "\n";
 
-            process_message(buf.data() + 22, bytes - 22, book_manager);
+            process_message(buf.data() + 22, u_bytes - 22, book_manager);
         }
 
     } else if (packets_lost.contains(packet_seq_num)) { // Recieved lost packet (can be buffered or sent)
         std::cout << "RECIEVED LOST PACKET! Starting Seq num: " << packet_seq_num 
                   << ", message count: " << message_count << "."
                   << std::endl;
+
+        uint64_t min_lost_packet {*packets_lost.begin()};
         
         for (size_t i{packet_seq_num}; i < packet_seq_num + message_count; i++) {
             packets_lost.erase(i);
         }
 
-        if (*packets_lost.begin() == packet_seq_num) {
-            process_message(buf.data() + 22, bytes - 22, book_manager);
-        } else {
-            packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, buf};
+        if (min_lost_packet == packet_seq_num) { // If the lost packet is valid to be sent next
+            process_message(buf.data() + 22, u_bytes - 22, book_manager);
+        } else { // If not then we buffer
+            packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, u_bytes, buf};
         }
 
     } else { // Identified lost packet (incoming packet will be buffered)
@@ -114,6 +123,7 @@ void recv_market_data(BookManager& book_manager,
                   << "Sending retransmission request to exchange."
                   << std::endl;
 
+        expected_seq_num = packet_seq_num + message_count;
         // Insert all lost seq_nums
         for (size_t i {expected_seq_num}; i < packet_seq_num; i++) {
             packets_lost.insert(i);
@@ -121,7 +131,7 @@ void recv_market_data(BookManager& book_manager,
         request_retransmission(expected_seq_num, packet_seq_num - expected_seq_num); // Second argument is the amount of messages lost
 
         // Now we buffer/store the packet we did recieve
-        packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, buf};
+        packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, u_bytes, buf};
     }
 
 }
@@ -134,7 +144,14 @@ void handle_recv_market_data(BookManager& book_manager) {
     while (true) {
         recv_market_data(book_manager, expected_seq_num, packets_lost, packet_buffer);
         if (packets_lost.empty()) {
-            // Call some function to unload packet_buffer
+            // unload packet_buffer
+            for (auto& [start_seq_num, packet_data] : packet_buffer) {
+                // keys come out in ascending order automatically
+                // this works for now as we know 1 message per packet but this will
+                // be subject to change
+                process_message(packet_data.data.data() + 22, packet_data.bytes - 22, book_manager);
+            }
+            packet_buffer.clear();
         }
     }
 }
