@@ -123,13 +123,13 @@ void recv_market_data(BookManager& book_manager,
                   << "Sending retransmission request to exchange."
                   << std::endl;
 
-        expected_seq_num = packet_seq_num + message_count;
         // Insert all lost seq_nums
         for (size_t i {expected_seq_num}; i < packet_seq_num; i++) {
             packets_lost.insert(i);
         }
         request_retransmission(expected_seq_num, packet_seq_num - expected_seq_num); // Second argument is the amount of messages lost
 
+        expected_seq_num = packet_seq_num + message_count;
         // Now we buffer/store the packet we did recieve
         packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, u_bytes, buf};
     }
