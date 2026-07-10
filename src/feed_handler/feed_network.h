@@ -5,6 +5,7 @@
 
 #include <set>
 #include <map>
+#include <optional>
 #include "../order_book/book_manager.h"
 
 constexpr const char* MULTICAST_IP_ADDR {"239.0.0.1"};
@@ -17,12 +18,13 @@ struct PacketData {
     std::array<char, 1024> data;
 };
 
+struct PacketDataToSend {
+    char* buf_data;
+    uint16_t msg_len;
+};
+
 void setup_socket();
 void handle_recv_market_data(BookManager& book_manager);
-void recv_market_data(BookManager& book_manager, 
-                      uint64_t& expected_seq_num, 
-                      std::set<uint64_t>& packets_lost, 
-                      std::map<uint64_t, PacketData>& packet_buffer);
 void close_socket();
 
 
