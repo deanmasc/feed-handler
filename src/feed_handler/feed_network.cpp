@@ -1,8 +1,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <array>
 #include <iostream>
 #include <iomanip>
 #include "feed_network.h"
@@ -30,7 +28,7 @@ void setup_socket() {
     setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &group, sizeof(group));
 }
 
-void request_retransmission(uint64_t first_seq_num, uint16_t messages_lost) {
+static void request_retransmission(uint64_t first_seq_num, uint16_t messages_lost) {
     std::cout << "Retransmission request for " << messages_lost 
               << " messages lost, starting from sequence number " << first_seq_num
               << std::endl;
@@ -54,7 +52,7 @@ static const char* itch_msg_name(char type) {
     }
 }
 
-void empty_buffer(std::map<uint64_t, PacketData>& packet_buffer, BookManager& book_manager) {
+static void empty_buffer(std::map<uint64_t, PacketData>& packet_buffer, BookManager& book_manager) {
     // unload packet_buffer
     for (auto& [start_seq_num, packet_data] : packet_buffer) {
         // keys come out in ascending order automatically
@@ -65,13 +63,13 @@ void empty_buffer(std::map<uint64_t, PacketData>& packet_buffer, BookManager& bo
     packet_buffer.clear();
 }
 
-void erase_lost_messages(std::set<uint64_t>& messages_lost, uint64_t start_seq_num, uint16_t message_count) {
+static void erase_lost_messages(std::set<uint64_t>& messages_lost, uint64_t start_seq_num, uint16_t message_count) {
     for (size_t i{}; i < message_count; i++) {
         messages_lost.erase(start_seq_num + i);
     }
 }
 
-void insert_lost_messages(std::set<uint64_t>& messages_lost, uint64_t expected_seq_num, uint64_t packet_seq_num) {
+static void insert_lost_messages(std::set<uint64_t>& messages_lost, uint64_t expected_seq_num, uint64_t packet_seq_num) {
     for (size_t i {expected_seq_num}; i < packet_seq_num; i++) {
         messages_lost.insert(i);
     }

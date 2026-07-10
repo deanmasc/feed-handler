@@ -5,6 +5,8 @@
 
 #include <set>
 #include <map>
+#include <array>
+#include <unistd.h>
 #include <optional>
 #include "../order_book/book_manager.h"
 
