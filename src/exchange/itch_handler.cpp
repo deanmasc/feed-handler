@@ -21,8 +21,7 @@ void wrap_MoldUDP64_header(char* buf, uint64_t seq_num, uint16_t message_count) 
 
 }
 
-void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer,
-                             std::mutex& buf_mtx) {
+void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer, std::mutex& buf_mtx) {
     uint64_t seq_num {1};
     uint16_t message_count {1};
     std::ifstream file(ITCH_FILE, std::ios::binary);
@@ -64,7 +63,6 @@ void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer,
                 ++seq_num;
             }
         }
-
     }
 
     std::cout << "Reached end of ITCH file" << std::endl;
@@ -75,8 +73,8 @@ void handle_itch_processing() {
     std::mutex buf_mtx;
 
     // 2 threads for sending itch data, and recieving retransmission requests
-    std::thread  send_data_thread(read_and_send_itch_data, packet_buffer, buf_mtx);
-    std::thread  recv_data_thread(recv_retransmission_reqs, packet_buffer, buf_mtx);
+    std::thread  send_data_thread(read_and_send_itch_data, std::ref(packet_buffer), std::ref(buf_mtx));
+    std::thread  recv_data_thread(recv_retransmission_reqs, std::ref(packet_buffer), std::ref(buf_mtx));
 
     send_data_thread.join();
     recv_data_thread.join();

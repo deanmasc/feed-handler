@@ -3,12 +3,15 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <iomanip>
+#include <cstring>
+#include <cerrno>
 #include "feed_network.h"
 #include "../parser/parser.h"
 
 int sock_fd;
 int reuse {1};
 sockaddr_in addr {};
+sockaddr_in dest {};
 
 
 void setup_socket() {
@@ -19,8 +22,12 @@ void setup_socket() {
 
     addr.sin_family = AF_INET;
     addr.sin_port = htons(MULTICAST_PORT);
-    addr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, MULTICAST_IP_ADDR, &addr.sin_addr);
     bind(sock_fd, (sockaddr*)&addr, sizeof(addr));
+
+    dest.sin_family = AF_INET;
+    dest.sin_port = htons(RETRANSMISSION_PORT);
+    inet_pton(AF_INET, RETRANSMISSION_IP_ADDR, &dest.sin_addr);
 
     ip_mreq group{};
     inet_pton(AF_INET, MULTICAST_IP_ADDR, &group.imr_multiaddr);
@@ -53,7 +60,7 @@ static void request_retransmission(uint64_t first_seq_num, uint16_t messages_los
     memcpy(&data[0], &first_seq_num, 8);
     memcpy(&data[8], &messages_lost, 2);
 
-    ssize_t sent = sendto(sock_fd, data, 10, 0, (sockaddr*)&addr, sizeof(addr));
+    ssize_t sent = sendto(sock_fd, data, 10, 0, (sockaddr*)&dest, sizeof(dest));
 
     if (sent < 0) {
         std::cout << "sendto FAILED for retransmission request: " << std::strerror(errno) << std::endl;

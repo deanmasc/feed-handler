@@ -8,16 +8,27 @@
 #include "exchange_network.h"
 
 int sock_fd;
+int sock_fd_recv;
+
+sockaddr_in addr {};
 sockaddr_in dest {};
 
 
 void setup_socket() {
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    sock_fd_recv = socket(AF_INET, SOCK_DGRAM, 0);
 
     // destination: the multicast group
     dest.sin_family = AF_INET;
     dest.sin_port = htons(MULTICAST_PORT);
     inet_pton(AF_INET, MULTICAST_IP_ADDR, &dest.sin_addr);
+
+    // address: the address of the exchange process
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(RETRANSMISSION_PORT);
+    inet_pton(AF_INET, RETRANSMISSION_IP_ADDR, &addr.sin_addr);
+    bind(sock_fd_recv, (sockaddr*)&addr, sizeof(addr));
+
     int loop = 1;
     setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
 
@@ -71,9 +82,7 @@ void recv_retransmission_reqs(const std::map<uint64_t, BufferedPacket>& packet_b
             BufferedPacket lost_packet {packet_buffer.at(first_seq_num)};
             send_market_data(&lost_packet.data[0], lost_packet.bytes);
         }
-
     }
-
 }
 
 

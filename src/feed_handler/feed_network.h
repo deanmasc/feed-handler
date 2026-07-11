@@ -12,6 +12,8 @@
 
 constexpr const char* MULTICAST_IP_ADDR {"239.0.0.1"};
 constexpr const int MULTICAST_PORT {30000};
+constexpr const char* RETRANSMISSION_IP_ADDR {"127.0.0.1"};
+constexpr const int RETRANSMISSION_PORT {30001};
 
 struct PacketData {
     uint64_t start_seq_num;
