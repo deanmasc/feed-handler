@@ -145,7 +145,7 @@ std::optional<PacketDataToSend> recv_market_data(std::array<char, 1024>& buf,
             packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, u_bytes, buf};
         }
 
-    } else { // Identified lost packet (incoming packet will be buffered)
+    }  else if (packet_seq_num > expected_seq_num) { // Identified lost packet (because if packet seq num was smaller then we recieved a duplicate)
         std::cout << "PACKET LOST! Expected Seq num " << expected_seq_num 
                   << ", recieved seq num " << packet_seq_num << ". "
                   << "Sending retransmission request to exchange."
