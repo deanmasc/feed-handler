@@ -9,6 +9,7 @@
 #include "../parser/parser.h"
 
 int sock_fd;
+int sock_fd_send;
 int reuse {1};
 sockaddr_in addr {};
 sockaddr_in dest {};
@@ -17,6 +18,7 @@ sockaddr_in dest {};
 void setup_socket() {
 
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    sock_fd_send = socket(AF_INET, SOCK_DGRAM, 0);
 
     setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
@@ -60,7 +62,7 @@ static void request_retransmission(uint64_t first_seq_num, uint16_t messages_los
     memcpy(&data[0], &first_seq_num, 8);
     memcpy(&data[8], &messages_lost, 2);
 
-    ssize_t sent = sendto(sock_fd, data, 10, 0, (sockaddr*)&dest, sizeof(dest));
+    ssize_t sent = sendto(sock_fd_send, data, 10, 0, (sockaddr*)&dest, sizeof(dest));
 
     if (sent < 0) {
         std::cout << "sendto FAILED for retransmission request: " << std::strerror(errno) << std::endl;
@@ -192,4 +194,5 @@ void handle_recv_market_data(BookManager& book_manager) {
 
 void close_socket() {
     close(sock_fd);
+    close(sock_fd_send);
 } 

@@ -94,3 +94,4 @@ cmake-build-release/
 src/exchange/exchange
 src/feed_handler/feed
 tests/ob-test
+tests/gap-test
