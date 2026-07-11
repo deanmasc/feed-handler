@@ -11,8 +11,8 @@ constexpr const int MULTICAST_PORT {30000};
 constexpr const size_t RETRANSMISSION_BUFFER_MAX_SIZE {10}; // Amount of packets buffered
 
 struct BufferedPacket {
-    uint16_t bytes;
     std::array<char, 1024> data;
+    uint16_t bytes;
 };
 
 void setup_socket();

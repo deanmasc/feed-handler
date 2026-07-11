@@ -44,14 +44,14 @@ static const char* itch_msg_name(char type) {
     }
 }
 
-static void request_retransmission(uint64_t first_seq_num, uint16_t bytes) {
-    std::cout << "Retransmission request for " << bytes 
-              << " bytes lost, starting from sequence number " << first_seq_num
+static void request_retransmission(uint64_t first_seq_num, uint16_t messages_lost) {
+    std::cout << "Retransmission request for " << messages_lost 
+              << " messages lost, starting from sequence number " << first_seq_num
               << std::endl;
 
     char data[10];
     memcpy(&data[0], &first_seq_num, 8);
-    memcpy(&data[8], &bytes, 2);
+    memcpy(&data[8], &messages_lost, 2);
 
     ssize_t sent = sendto(sock_fd, data, 10, 0, (sockaddr*)&addr, sizeof(addr));
 
@@ -153,7 +153,7 @@ std::optional<PacketDataToSend> recv_market_data(std::array<char, 1024>& buf,
 
         // Insert all lost seq_nums
         insert_lost_messages(messages_lost, expected_seq_num, packet_seq_num);
-        request_retransmission(expected_seq_num, u_bytes);
+        request_retransmission(expected_seq_num, packet_seq_num - expected_seq_num);
 
         expected_seq_num = packet_seq_num + message_count;
         // Now we buffer/store the packet we did recieve

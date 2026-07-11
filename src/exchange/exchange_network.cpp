@@ -50,11 +50,13 @@ void recv_retransmission_reqs(const std::map<uint64_t, BufferedPacket>& packet_b
             continue;
         }
 
+        size_t offset {};
         uint64_t first_seq_num;
-        memcpy(&first_seq_num, &buf[0], 8);
+        memcpy(&first_seq_num, &buf[offset], 8);
+        offset += 8;
 
         uint16_t messages_lost;
-        memcpy(&messages_lost, &buf[8], 2);
+        memcpy(&messages_lost, &buf[offset], 2);
 
         std::cout << "Exchange is aware of " << messages_lost 
                   << " messages lost, from sequence number "

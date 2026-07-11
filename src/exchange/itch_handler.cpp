@@ -41,12 +41,12 @@ void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer,
 
         if (file.gcount() < 2) break;  // EOF or partial — done
 
-        uint16_t msg_len = (len_bytes[0] << 8) | len_bytes[1];  // big-endian -> host
-        if (msg_len == 0 || msg_len > sizeof(buf)) break;       // sanity guard
+        uint16_t packet_len = (len_bytes[0] << 8) | len_bytes[1];  // big-endian -> host
+        if (packet_len == 0 || packet_len > sizeof(buf)) break;       // sanity guard
 
         // 2) read exactly that many bytes — one complete ITCH message
-        file.read(buf.data() + 22, msg_len);
-        if (file.gcount() < msg_len) break;  // truncated tail
+        file.read(buf.data() + 22, packet_len);
+        if (file.gcount() < packet_len) break;  // truncated tail
 
         // 3) hand the raw message to the sender (no decoding yet)
         // Add checking to ensure we are sending only relevant types
@@ -55,12 +55,12 @@ void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer,
             wrap_MoldUDP64_header(buf.data(), seq_num, message_count);
             {   
                 std::lock_guard<std::mutex> lock(buf_mtx);
-                packet_buffer[seq_num] = BufferedPacket {message_count, buf};
+                packet_buffer[seq_num] = BufferedPacket {buf, static_cast<uint16_t>(packet_len + 22)};
                 if (packet_buffer.size() > RETRANSMISSION_BUFFER_MAX_SIZE) {
                     // removing the oldest packet if we have exceed capacity
                     packet_buffer.erase(packet_buffer.begin()->first);
                 }
-                send_market_data(buf.data(), msg_len + 22);
+                send_market_data(buf.data(), packet_len + 22);
                 ++seq_num;
             }
         }
