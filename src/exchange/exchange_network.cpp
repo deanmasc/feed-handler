@@ -81,6 +81,10 @@ void recv_retransmission_reqs(const std::map<uint64_t, BufferedPacket>& packet_b
 
             BufferedPacket lost_packet {packet_buffer.at(first_seq_num)};
             send_market_data(&lost_packet.data[0], lost_packet.bytes);
+
+            std::cout << "Exchange has sent back " << messages_lost 
+                  << " messages that were lost, from sequence number "
+                  << first_seq_num << std::endl;
         }
     }
 }

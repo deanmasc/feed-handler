@@ -79,6 +79,8 @@ static void empty_buffer(std::map<uint64_t, PacketData>& packet_buffer, BookMana
         // keys come out in ascending order automatically
         // this works for now as we know 1 message per packet but this will
         // be subject to change
+        std::cout << "Resending buffered packet, from seq num: "
+                  << start_seq_num << std::endl;
         process_message(packet_data.data.data() + 22, packet_data.bytes - 22, book_manager);
     }
     packet_buffer.clear();

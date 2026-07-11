@@ -6,13 +6,13 @@
 #include <set>
 #include "exchange_network.h"
 
-void read_and_send_itch_data();
+void handle_itch_processing();
 
 int main() {
     std::cout << "Exchange process started" << std::endl;
 
     setup_socket();
-    read_and_send_itch_data();
+    handle_itch_processing();   // spawns the send + retransmission threads
     close_socket();
     return 0;
 }
