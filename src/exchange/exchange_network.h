@@ -15,6 +15,7 @@ constexpr const size_t RETRANSMISSION_BUFFER_MAX_SIZE {10}; // Amount of packets
 struct BufferedPacket {
     std::array<char, 1024> data;
     uint16_t bytes;
+    uint16_t messages_lost;
 };
 
 void setup_socket();

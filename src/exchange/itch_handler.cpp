@@ -54,7 +54,7 @@ void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer, 
             wrap_MoldUDP64_header(buf.data(), seq_num, message_count);
             {   
                 std::lock_guard<std::mutex> lock(buf_mtx);
-                packet_buffer[seq_num] = BufferedPacket {buf, static_cast<uint16_t>(packet_len + 22)};
+                packet_buffer[seq_num] = BufferedPacket {buf, static_cast<uint16_t>(packet_len + 22), message_count};
                 if (packet_buffer.size() > RETRANSMISSION_BUFFER_MAX_SIZE) {
                     // removing the oldest packet if we have exceed capacity
                     packet_buffer.erase(packet_buffer.begin()->first);

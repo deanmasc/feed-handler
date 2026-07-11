@@ -73,18 +73,26 @@ void recv_retransmission_reqs(const std::map<uint64_t, BufferedPacket>& packet_b
                   << " messages lost, from sequence number "
                   << first_seq_num << std::endl;
 
+        uint16_t messages_retrieved {};
+
         {
             std::lock_guard<std::mutex> lock(buf_mtx);
-            if (packet_buffer.empty() || !packet_buffer.count(first_seq_num)) {
-                continue;
+            while (messages_lost > messages_retrieved) {
+                if (packet_buffer.empty() || !packet_buffer.count(first_seq_num)) {
+                    break;
+                }
+
+                BufferedPacket lost_packet {packet_buffer.at(first_seq_num)};
+                send_market_data(&lost_packet.data[0], lost_packet.bytes);
+
+                std::cout << "Exchange has sent back " << lost_packet.messages_lost 
+                    << " messages that were lost, from sequence number "
+                    << first_seq_num << std::endl;
+
+                messages_retrieved += lost_packet.messages_lost;
+                first_seq_num += lost_packet.messages_lost;
+
             }
-
-            BufferedPacket lost_packet {packet_buffer.at(first_seq_num)};
-            send_market_data(&lost_packet.data[0], lost_packet.bytes);
-
-            std::cout << "Exchange has sent back " << messages_lost 
-                  << " messages that were lost, from sequence number "
-                  << first_seq_num << std::endl;
         }
     }
 }
