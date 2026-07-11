@@ -54,7 +54,7 @@ void recv_retransmission_reqs(const std::map<uint64_t, BufferedPacket>& packet_b
     std::array<char, 1024> buf;
 
     while (true) {
-        ssize_t bytes = recvfrom(sock_fd, buf.data(), buf.size(), 0, nullptr, nullptr);
+        ssize_t bytes = recvfrom(sock_fd_recv, buf.data(), buf.size(), 0, nullptr, nullptr);
 
         if (bytes < 10) {
             // Not enough bytes recieved for the expected information
@@ -88,4 +88,5 @@ void recv_retransmission_reqs(const std::map<uint64_t, BufferedPacket>& packet_b
 
 void close_socket() {
     close(sock_fd);
+    close(sock_fd_recv);
 }
