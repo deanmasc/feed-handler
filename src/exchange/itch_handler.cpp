@@ -3,15 +3,14 @@
 #include <thread>
 #include <chrono>
 #include <set>
+#include <thread>
 #include "exchange_network.h"
 #define htobe64(x) __builtin_bswap64(x)
 
 constexpr const char* ITCH_FILE = "/Users/deanmascitti/Desktop/dean-dev/feed-handler/src/data/test.NASDAQ_ITCH50";
 const std::set<char> VALID_TYPES {'A', 'F', 'E', 'C', 'X', 'D', 'U', 'P', 'S', 'H'};
 
-void wrap_MoldUDP64_header(char* buf, uint64_t seq_num) {
-    uint16_t message_count {1};
-
+void wrap_MoldUDP64_header(char* buf, uint64_t seq_num, uint16_t message_count) {
     memcpy(&buf[0], "SESSION  1", 10);
 
     uint64_t seq_num_big_endian = htobe64(seq_num);
@@ -22,8 +21,10 @@ void wrap_MoldUDP64_header(char* buf, uint64_t seq_num) {
 
 }
 
-void read_and_send_itch_data() {
+void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer,
+                             std::mutex& buf_mtx) {
     uint64_t seq_num {1};
+    uint16_t message_count {1};
     std::ifstream file(ITCH_FILE, std::ios::binary);
 
     if (!file) {
@@ -31,7 +32,7 @@ void read_and_send_itch_data() {
         return;
     }
 
-    char buf[1024];
+    std::array<char, 1024> buf;
     while (true) {
         // 1) read the 2-byte length prefix
         unsigned char len_bytes[2];
@@ -44,20 +45,39 @@ void read_and_send_itch_data() {
         if (msg_len == 0 || msg_len > sizeof(buf)) break;       // sanity guard
 
         // 2) read exactly that many bytes — one complete ITCH message
-        file.read(buf + 22, msg_len);
+        file.read(buf.data() + 22, msg_len);
         if (file.gcount() < msg_len) break;  // truncated tail
 
         // 3) hand the raw message to the sender (no decoding yet)
         // Add checking to ensure we are sending only relevant types
         char type = buf[22];
         if (VALID_TYPES.count(type)) {
-            wrap_MoldUDP64_header(buf, seq_num);
-            send_market_data(buf, msg_len + 22);
-            ++seq_num;
-            std::this_thread::sleep_for(std::chrono::microseconds(100000));
+            wrap_MoldUDP64_header(buf.data(), seq_num, message_count);
+            {   
+                std::lock_guard<std::mutex> lock(buf_mtx);
+                packet_buffer[seq_num] = BufferedPacket {message_count, buf};
+                if (packet_buffer.size() > RETRANSMISSION_BUFFER_MAX_SIZE) {
+                    // removing the oldest packet if we have exceed capacity
+                    packet_buffer.erase(packet_buffer.begin()->first);
+                }
+                send_market_data(buf.data(), msg_len + 22);
+                ++seq_num;
+            }
         }
 
     }
 
     std::cout << "Reached end of ITCH file" << std::endl;
+}
+
+void handle_itch_processing() {
+    std::map<uint64_t, BufferedPacket> packet_buffer;
+    std::mutex buf_mtx;
+
+    // 2 threads for sending itch data, and recieving retransmission requests
+    std::thread  send_data_thread(read_and_send_itch_data, packet_buffer, buf_mtx);
+    std::thread  recv_data_thread(recv_retransmission_reqs, packet_buffer, buf_mtx);
+
+    send_data_thread.join();
+    recv_data_thread.join();
 }

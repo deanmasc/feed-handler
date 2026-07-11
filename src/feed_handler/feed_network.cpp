@@ -28,14 +28,6 @@ void setup_socket() {
     setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &group, sizeof(group));
 }
 
-static void request_retransmission(uint64_t first_seq_num, uint16_t messages_lost) {
-    std::cout << "Retransmission request for " << messages_lost 
-              << " messages lost, starting from sequence number " << first_seq_num
-              << std::endl;
-
-    return;
-}
-
 static const char* itch_msg_name(char type) {
     switch (type) {
         case 'A': return "Add Order";
@@ -50,6 +42,26 @@ static const char* itch_msg_name(char type) {
         case 'H': return "Stock Trading Action";
         default:  return "Unknown / not-yet-handled";
     }
+}
+
+static void request_retransmission(uint64_t first_seq_num, uint16_t bytes) {
+    std::cout << "Retransmission request for " << bytes 
+              << " bytes lost, starting from sequence number " << first_seq_num
+              << std::endl;
+
+    char data[10];
+    memcpy(&data[0], &first_seq_num, 8);
+    memcpy(&data[8], &bytes, 2);
+
+    ssize_t sent = sendto(sock_fd, data, 10, 0, (sockaddr*)&addr, sizeof(addr));
+
+    if (sent < 0) {
+        std::cout << "sendto FAILED for retransmission request: " << std::strerror(errno) << std::endl;
+    } else {
+        std::cout << "Retransmission request sent " << sent << " bytes" << std::endl;
+    }
+
+    return;
 }
 
 static void empty_buffer(std::map<uint64_t, PacketData>& packet_buffer, BookManager& book_manager) {
@@ -141,7 +153,7 @@ std::optional<PacketDataToSend> recv_market_data(std::array<char, 1024>& buf,
 
         // Insert all lost seq_nums
         insert_lost_messages(messages_lost, expected_seq_num, packet_seq_num);
-        request_retransmission(expected_seq_num, packet_seq_num - expected_seq_num); // Second argument is the amount of messages lost
+        request_retransmission(expected_seq_num, u_bytes);
 
         expected_seq_num = packet_seq_num + message_count;
         // Now we buffer/store the packet we did recieve

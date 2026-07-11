@@ -29,7 +29,7 @@ void setup_socket() {
 
 
 // dummy function for now
-void send_market_data(char* data, size_t len) {
+void send_market_data(const char* data, size_t len) {
     // This function will be called with MoldUDP64 wrapped market data to send to the multicast UDP
     ssize_t sent = sendto(sock_fd, data, len, 0, (sockaddr*)&dest, sizeof(dest));
     if (sent < 0) {
@@ -37,6 +37,41 @@ void send_market_data(char* data, size_t len) {
     } else {
         std::cout << "Sent " << sent << " bytes" << std::endl;
     }
+}
+
+void recv_retransmission_reqs(const std::map<uint64_t, BufferedPacket>& packet_buffer, std::mutex& buf_mtx) {
+    std::array<char, 1024> buf;
+
+    while (true) {
+        ssize_t bytes = recvfrom(sock_fd, buf.data(), buf.size(), 0, nullptr, nullptr);
+
+        if (bytes < 10) {
+            // Not enough bytes recieved for the expected information
+            continue;
+        }
+
+        uint64_t first_seq_num;
+        memcpy(&first_seq_num, &buf[0], 8);
+
+        uint16_t messages_lost;
+        memcpy(&messages_lost, &buf[8], 2);
+
+        std::cout << "Exchange is aware of " << messages_lost 
+                  << " messages lost, from sequence number "
+                  << first_seq_num << std::endl;
+
+        {
+            std::lock_guard<std::mutex> lock(buf_mtx);
+            if (packet_buffer.empty() || !packet_buffer.count(first_seq_num)) {
+                continue;
+            }
+
+            BufferedPacket lost_packet {packet_buffer.at(first_seq_num)};
+            send_market_data(&lost_packet.data[0], lost_packet.bytes);
+        }
+
+    }
+
 }
 
 
