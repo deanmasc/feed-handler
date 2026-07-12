@@ -73,6 +73,20 @@ static void request_retransmission(uint64_t first_seq_num, uint16_t messages_los
     return;
 }
 
+static void process_packet_messages(char* packet_data, uint16_t len, BookManager& book_manager) {
+    uint16_t bytes_processed {20};
+    uint16_t message_len;
+
+    while (bytes_processed < len) {
+        memcpy(&message_len, packet_data + bytes_processed, 2);
+        message_len = ntohs(message_len); // big endian to little endian
+        bytes_processed += 2;
+
+        process_message(packet_data + bytes_processed, message_len, book_manager);
+        bytes_processed += message_len;
+    }
+}
+
 static void empty_buffer(std::map<uint64_t, PacketData>& packet_buffer, BookManager& book_manager) {
     // unload packet_buffer
     for (auto& [start_seq_num, packet_data] : packet_buffer) {
@@ -81,7 +95,7 @@ static void empty_buffer(std::map<uint64_t, PacketData>& packet_buffer, BookMana
         // be subject to change
         std::cout << "Resending buffered packet, from seq num: "
                   << start_seq_num << std::endl;
-        process_message(packet_data.data.data() + 22, packet_data.bytes - 22, book_manager);
+        process_packet_messages(packet_data.data.data(), packet_data.bytes, book_manager);
     }
     packet_buffer.clear();
 }
@@ -99,7 +113,7 @@ static void insert_lost_messages(std::set<uint64_t>& messages_lost, uint64_t exp
 }
 
 // recieves market data
-std::optional<PacketDataToSend> recv_market_data(std::array<char, 1024>& buf, 
+std::optional<PacketDataToProcess> recv_market_data(std::array<char, 1024>& buf, 
                       uint64_t& expected_seq_num, 
                       std::set<uint64_t>& messages_lost, 
                       std::map<uint64_t, PacketData>& packet_buffer) {
@@ -124,22 +138,18 @@ std::optional<PacketDataToSend> recv_market_data(std::array<char, 1024>& buf,
     memcpy(&message_count, buf.data() + 18, 2);
     message_count = ntohs(message_count);
 
-    char type = buf[22];
     std::cout << "Received " << u_bytes << " bytes "
             << "Session: " << std::string(session, 10) << " "
-            << "Sequence Number " << packet_seq_num << " "
+            << "First Sequence Number " << packet_seq_num << " "
             << "Message_count " << message_count << " "
-            << " | type '" << type << "'"
-            << " (0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-            << (static_cast<unsigned int>(type) & 0xFF) << std::dec << ")"
-            << " -> " << itch_msg_name(type) << "\n";
+            << "\n";
 
     if (packet_seq_num == expected_seq_num) { // Expected seq_num (can be buffered or sent)
         expected_seq_num += message_count;
         if (!messages_lost.empty()) {
             packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, u_bytes, buf};
         } else {
-            return PacketDataToSend {buf.data() + 22, static_cast<uint16_t>(u_bytes - 22)};
+            return PacketDataToProcess {buf.data(), u_bytes};
         }
 
     } else if (messages_lost.contains(packet_seq_num)) { // Recieved lost packet (can be buffered or sent)
@@ -151,7 +161,7 @@ std::optional<PacketDataToSend> recv_market_data(std::array<char, 1024>& buf,
         erase_lost_messages(messages_lost, packet_seq_num, message_count);
 
         if (min_lost_packet == packet_seq_num) { // If the lost packet is valid to be sent next
-            return PacketDataToSend {buf.data() + 22, static_cast<uint16_t>(u_bytes - 22)};
+            return PacketDataToProcess {buf.data(), u_bytes};
         } else { // If not then we buffer
             packet_buffer[packet_seq_num] = PacketData{packet_seq_num, message_count, u_bytes, buf};
         }
@@ -179,13 +189,13 @@ void handle_recv_market_data(BookManager& book_manager) {
     uint64_t expected_seq_num {1};
     std::set<uint64_t> messages_lost;
     std::map<uint64_t, PacketData> packet_buffer;
-    std::optional<PacketDataToSend> packet_data_to_send;
+    std::optional<PacketDataToProcess> packet_data_to_send;
     std::array<char, 1024> buf;
 
     while (true) {
         packet_data_to_send = recv_market_data(buf, expected_seq_num, messages_lost, packet_buffer);
         if (packet_data_to_send) {
-            process_message(packet_data_to_send->buf_data, packet_data_to_send->msg_len, book_manager);
+            process_packet_messages(packet_data_to_send->buf_data, packet_data_to_send->msg_len, book_manager);
             // If no packets lost and buffer has entries, then we empty the buffer
             if (messages_lost.empty() && !packet_buffer.empty()) {
                 empty_buffer(packet_buffer, book_manager);

@@ -22,7 +22,7 @@ struct PacketData {
     std::array<char, 1024> data;
 };
 
-struct PacketDataToSend {
+struct PacketDataToProcess {
     char* buf_data;
     uint16_t msg_len;
 };

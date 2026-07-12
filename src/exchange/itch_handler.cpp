@@ -8,7 +8,6 @@
 #define htobe64(x) __builtin_bswap64(x)
 
 constexpr const char* ITCH_FILE = "/Users/deanmascitti/Desktop/dean-dev/feed-handler/src/data/test.NASDAQ_ITCH50";
-const std::set<char> VALID_TYPES {'A', 'F', 'E', 'C', 'X', 'D', 'U', 'P', 'S', 'H'};
 
 void wrap_MoldUDP64_header(char* buf, uint64_t seq_num, uint16_t message_count) {
     memcpy(&buf[0], "SESSION  1", 10);
@@ -23,7 +22,6 @@ void wrap_MoldUDP64_header(char* buf, uint64_t seq_num, uint16_t message_count) 
 
 void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer, std::mutex& buf_mtx) {
     uint64_t seq_num {1};
-    uint16_t message_count {1};
     std::ifstream file(ITCH_FILE, std::ios::binary);
 
     if (!file) {
@@ -32,36 +30,49 @@ void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer, 
     }
 
     std::array<char, 1024> buf;
+
     while (true) {
+        size_t buf_filled {20};
+        uint16_t message_count {};
         // 1) read the 2-byte length prefix
-        unsigned char len_bytes[2];
-        file.read(reinterpret_cast<char*>(len_bytes), 2);
-        memcpy(&buf[20], reinterpret_cast<char*>(len_bytes), 2);
+        while (buf_filled < buf.size()) {
+            unsigned char len_bytes[2];
+            file.read(reinterpret_cast<char*>(len_bytes), 2);
+            memcpy(&buf[buf_filled], reinterpret_cast<char*>(len_bytes), 2);
 
-        if (file.gcount() < 2) break;  // EOF or partial — done
+            if (file.gcount() < 2) break;  // EOF or partial — done
+            buf_filled += 2;
 
-        uint16_t packet_len = (len_bytes[0] << 8) | len_bytes[1];  // big-endian -> host
-        if (packet_len == 0 || packet_len > sizeof(buf)) break;       // sanity guard
+            uint16_t packet_len = (len_bytes[0] << 8) | len_bytes[1];  // big-endian -> host
+            if (packet_len == 0 || packet_len > (buf.size() - buf_filled)) {
+                file.seekg(-2, std::ios::cur);
+                buf_filled -= 2;
+                break;
+            }
 
-        // 2) read exactly that many bytes — one complete ITCH message
-        file.read(buf.data() + 22, packet_len);
-        if (file.gcount() < packet_len) break;  // truncated tail
+            // 2) read exactly that many bytes — one complete ITCH message
+            file.read(buf.data() + buf_filled, packet_len);
+            if (file.gcount() < packet_len) {
+                buf_filled -= 2;
+                break;
+            }
+            buf_filled += packet_len;
+            ++message_count;
+        }
+
+        if (buf_filled <= 22) break; // If we reached EOF and no messages in packet
 
         // 3) hand the raw message to the sender (no decoding yet)
-        // Add checking to ensure we are sending only relevant types
-        char type = buf[22];
-        if (VALID_TYPES.count(type)) {
-            wrap_MoldUDP64_header(buf.data(), seq_num, message_count);
-            {   
-                std::lock_guard<std::mutex> lock(buf_mtx);
-                packet_buffer[seq_num] = BufferedPacket {buf, static_cast<uint16_t>(packet_len + 22), message_count};
-                if (packet_buffer.size() > RETRANSMISSION_BUFFER_MAX_SIZE) {
-                    // removing the oldest packet if we have exceed capacity
-                    packet_buffer.erase(packet_buffer.begin()->first);
-                }
-                send_market_data(buf.data(), packet_len + 22);
-                ++seq_num;
+        wrap_MoldUDP64_header(buf.data(), seq_num, message_count);
+        {   
+            std::lock_guard<std::mutex> lock(buf_mtx);
+            packet_buffer[seq_num] = BufferedPacket {buf, static_cast<uint16_t>(buf_filled), message_count};
+            if (packet_buffer.size() > RETRANSMISSION_BUFFER_MAX_SIZE) {
+                // removing the oldest packet if we have exceed capacity
+                packet_buffer.erase(packet_buffer.begin()->first);
             }
+            send_market_data(buf.data(), buf_filled);
+            ++seq_num;
         }
     }
 

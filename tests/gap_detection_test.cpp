@@ -39,7 +39,7 @@
 
 // recv_market_data isn't declared in feed_network.h (only the public entry
 // points are), so forward-declare it to match the definition in the .cpp.
-std::optional<PacketDataToSend> recv_market_data(std::array<char, 1024>& buf,
+std::optional<PacketDataToProcess> recv_market_data(std::array<char, 1024>& buf,
                                                  uint64_t& expected_seq_num,
                                                  std::set<uint64_t>& messages_lost,
                                                  std::map<uint64_t, PacketData>& packet_buffer);
