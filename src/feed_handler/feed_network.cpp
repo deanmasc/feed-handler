@@ -113,7 +113,7 @@ static void insert_lost_messages(std::set<uint64_t>& messages_lost, uint64_t exp
 }
 
 // recieves market data
-std::optional<PacketDataToProcess> recv_market_data(std::array<char, 1024>& buf, 
+std::optional<PacketDataToProcess> recv_market_data(std::array<char, 1024>& buf,
                       uint64_t& expected_seq_num, 
                       std::set<uint64_t>& messages_lost, 
                       std::map<uint64_t, PacketData>& packet_buffer) {

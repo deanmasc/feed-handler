@@ -35,7 +35,7 @@ void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer, 
         size_t buf_filled {20};
         uint16_t message_count {};
         // 1) read the 2-byte length prefix
-        while (buf_filled < buf.size()) {
+        while (buf_filled + 2 <= buf.size()) {
             unsigned char len_bytes[2];
             file.read(reinterpret_cast<char*>(len_bytes), 2);
             memcpy(&buf[buf_filled], reinterpret_cast<char*>(len_bytes), 2);
@@ -72,7 +72,7 @@ void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer, 
                 packet_buffer.erase(packet_buffer.begin()->first);
             }
             send_market_data(buf.data(), buf_filled);
-            ++seq_num;
+            seq_num += message_count;
         }
     }
 

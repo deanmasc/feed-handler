@@ -47,6 +47,23 @@ std::optional<PacketDataToProcess> recv_market_data(std::array<char, 1024>& buf,
 // The feed handler's socket, so we can put a recv timeout on it.
 extern int sock_fd;
 
+// Mirrors process_packet_messages (feed_network.cpp, internal linkage) — walks
+// the [2-byte len][message] entries starting after the 20-byte MoldUDP64
+// header and applies each one.
+static void replay_packet_messages(char* packet_data, uint16_t len, BookManager& book_manager) {
+    uint16_t bytes_processed {20};
+    uint16_t message_len;
+
+    while (bytes_processed < len) {
+        memcpy(&message_len, packet_data + bytes_processed, 2);
+        message_len = ntohs(message_len);
+        bytes_processed += 2;
+
+        process_message(packet_data + bytes_processed, message_len, book_manager);
+        bytes_processed += message_len;
+    }
+}
+
 // ---- tiny test harness ---------------------------------------------------
 static int checks_run = 0;
 static int checks_failed = 0;
@@ -161,10 +178,10 @@ int main() {
     auto drive_once = [&]() {
         auto pds = recv_market_data(buf, expected_seq_num, messages_lost, packet_buffer);
         if (pds) {
-            process_message(pds->buf_data, pds->msg_len, mgr);
+            replay_packet_messages(pds->buf_data, pds->msg_len, mgr);
             if (messages_lost.empty() && !packet_buffer.empty()) {
                 for (auto& [seq, pd] : packet_buffer) {
-                    process_message(pd.data.data() + 22, pd.bytes - 22, mgr);
+                    replay_packet_messages(pd.data.data(), pd.bytes, mgr);
                 }
                 packet_buffer.clear();
             }
