@@ -4,10 +4,19 @@
 #include <chrono>
 #include <set>
 #include <thread>
+#include <cstdlib>
+#include <string>
 #include "exchange_network.h"
 #define htobe64(x) __builtin_bswap64(x)
 
-constexpr const char* ITCH_FILE = "/Users/deanmascitti/Desktop/dean-dev/feed-handler/src/data/test.NASDAQ_ITCH50";
+// Path to the ITCH data file. Override with the ITCH_FILE env var;
+// defaults to the sample file checked out alongside the source.
+std::string get_itch_file_path() {
+    if (const char* env_path = std::getenv("ITCH_FILE")) {
+        return env_path;
+    }
+    return "src/data/test.NASDAQ_ITCH50";
+}
 
 void wrap_MoldUDP64_header(char* buf, uint64_t seq_num, uint16_t message_count) {
     memcpy(&buf[0], "SESSION  1", 10);
@@ -22,10 +31,11 @@ void wrap_MoldUDP64_header(char* buf, uint64_t seq_num, uint16_t message_count) 
 
 void read_and_send_itch_data(std::map<uint64_t, BufferedPacket>& packet_buffer, std::mutex& buf_mtx) {
     uint64_t seq_num {1};
-    std::ifstream file(ITCH_FILE, std::ios::binary);
+    std::string itch_file_path = get_itch_file_path();
+    std::ifstream file(itch_file_path, std::ios::binary);
 
     if (!file) {
-        std::cout << "Failed to open ITCH file: " << ITCH_FILE << std::endl;
+        std::cout << "Failed to open ITCH file: " << itch_file_path << std::endl;
         return;
     }
 
